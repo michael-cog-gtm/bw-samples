@@ -110,6 +110,36 @@ in-memory and restart/reset loses changes. For Aurora, consecutive aggregate cal
 return Equifax counts 1 then 2; Experian remains 2. An Equifax call may mutate its
 store even if the other provider fails; no distributed rollback is promised.
 
+## Replacement runtime & transport choices
+
+These are deliberate replacement choices, not claims about BW runtime behavior:
+
+* JDK `HttpClient` is pinned to **HTTP/1.1**, avoiding HTTP/2/h2c Upgrade negotiation.
+* Both bureau calls run concurrently. This implements the source parallel flow,
+  but JDK futures and their scheduling are a replacement runtime choice.
+* A configurable `bureau.timeout-ms` (default **1000 ms**) applies per call to the
+  whole exchange, including connection and response-body receipt. This maps the BW
+  execution timeout to a Java deadline; it is not proof of identical BW cancellation.
+* No retries, circuit breaker, bulkhead or BW thread-pool parity is implemented.
+* Any non-2xx, timeout, connection error, unparseable or non-object provider JSON
+  produces **502 `{error, providers}`**, deterministically ordered and all-or-nothing.
+  Experian `{}` is success with an empty `ExperianResponse`.
+* Non-object request JSON (array, string, number, boolean or null) produces **400**
+  with a JSON error. Malformed JSON also produces 400.
+* Non-string field values are converted using Jackson `asText`; this differs from
+  XSLT `value-of` for nested objects. No additional field validation is imposed.
+* Experian receives `?ssn=` when SSN is present even if empty; null/absent SSN
+  omits the query parameter. Its body always includes all four string keys.
+* **Demo-only helpers**, not part of the migrated `/creditdetails` contract:
+  GET `/demo/standins/{bureau}/records` and POST `/demo/standins/{bureau}/reset`.
+  Only `equifax` and `experian` are accepted (others return 404). The main service
+  proxies server-side using configured bureau base URLs, mapping failures to 502
+  JSON. Browser requests stay same-origin, so forwarded/proxied UI URLs do not
+  require the viewer's machine to host the stand-ins. Stand-ins retain their own
+  endpoints and CORS. These unauthenticated helpers are for the synthetic demo only.
+* Editing an input or changing the preset clears prior results and invalidates any
+  in-flight result. Submitting clears the previous response before fetching.
+
 ## Replacement decisions and explicit gaps
 
 * **Failure semantics:** original CreditApp processes have no catch/fault handler

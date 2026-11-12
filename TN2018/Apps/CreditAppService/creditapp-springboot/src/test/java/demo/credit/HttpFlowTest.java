@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,6 +42,8 @@ class HttpFlowTest {
         for (var request : new okhttp3.mockwebserver.RecordedRequest[]{a,b}) {
             assertThat(request.getHeader("Accept")).isEqualTo("application/json");
             assertThat(request.getHeader("Content-Type")).isEqualTo("application/json");
+            assertThat(request.getHeader("Upgrade")).isNull();
+            assertThat(request.getRequestLine()).endsWith("HTTP/1.1");
         }
         assertThat(mapper.readTree(a.getBody().readUtf8())).isEqualTo(mapper.readTree("{\"SSN\":\"900-11-0001\",\"DOB\":\"\"}"));
         assertThat(mapper.readTree(b.getBody().readUtf8())).isEqualTo(mapper.readTree("{\"dob\":\"\",\"firstName\":\"\",\"lastName\":\"\",\"ssn\":\"900-11-0001\"}"));
@@ -74,4 +77,38 @@ class HttpFlowTest {
         eq.shutdown(); ex.enqueue(json("{}")); assertThat(send("{}", 502)).contains("Equifax", "connection error");
     }
     @Test void malformedClientJson() throws Exception { send("{", 400); }
+    @Test void nonObjectClientJson() throws Exception {
+        for (String input : new String[]{"[]", "\"customer\"", "123", "null"})
+            assertThat(mapper.readTree(send(input, 400)).path("error").asText()).isEqualTo("Request body must be a JSON object");
+        assertThat(eq.getRequestCount()).isZero(); assertThat(ex.getRequestCount()).isZero();
+    }
+    @Test void deterministicFailureOrder() throws Exception {
+        eq.enqueue(json("{}").setResponseCode(404)); ex.enqueue(json("{}").setResponseCode(500));
+        assertThat(send("{}", 502)).isEqualTo("{\"error\":\"Bureau request failed\",\"providers\":{\"Equifax\":\"HTTP 404\",\"Experian\":\"HTTP 500\"}}");
+    }
+    @Test void standInHelpersUseConfiguredServerSideDestinations() throws Exception {
+        eq.enqueue(json("[{\"ssn\":\"900-11-0001\"}]")); ex.enqueue(json("[]"));
+        var records = mvc.perform(get("/demo/standins/equifax/records")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(mapper.readTree(records).get(0).path("ssn").asText()).isEqualTo("900-11-0001");
+        mvc.perform(post("/demo/standins/experian/reset")).andExpect(status().isOk());
+        var a = eq.takeRequest(); var b = ex.takeRequest();
+        assertThat(a.getMethod()).isEqualTo("GET"); assertThat(a.getPath()).isEqualTo("/standin/records");
+        assertThat(b.getMethod()).isEqualTo("POST"); assertThat(b.getPath()).isEqualTo("/standin/reset");
+        assertThat(a.getHeader("Upgrade")).isNull(); assertThat(b.getHeader("Upgrade")).isNull();
+    }
+    @Test void unknownStandInIs404WithoutCallingProviders() throws Exception {
+        mvc.perform(get("/demo/standins/other/records")).andExpect(status().isNotFound());
+        mvc.perform(post("/demo/standins/other/reset")).andExpect(status().isNotFound());
+        assertThat(eq.getRequestCount()).isZero(); assertThat(ex.getRequestCount()).isZero();
+    }
+    @Test void standInHelperFailuresAreJson502() throws Exception {
+        for (var response : new MockResponse[]{json("{}").setResponseCode(503), json("broken"), json("[]").setBodyDelay(1500, TimeUnit.MILLISECONDS)}) {
+            eq.enqueue(response);
+            var body = mvc.perform(get("/demo/standins/equifax/records")).andExpect(status().isBadGateway()).andReturn().getResponse().getContentAsString();
+            assertThat(mapper.readTree(body).path("providers").has("equifax")).isTrue();
+        }
+        ex.shutdown();
+        var body = mvc.perform(post("/demo/standins/experian/reset")).andExpect(status().isBadGateway()).andReturn().getResponse().getContentAsString();
+        assertThat(body).contains("experian", "connection error");
+    }
 }
