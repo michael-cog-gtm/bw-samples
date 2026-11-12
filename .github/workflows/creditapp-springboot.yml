@@ -1,0 +1,19 @@
+name: CreditApp Spring Boot
+on:
+  push:
+    paths: ['TN2018/Apps/CreditAppService/creditapp-springboot/**', '.github/workflows/creditapp-springboot.yml']
+  pull_request:
+    paths: ['TN2018/Apps/CreditAppService/creditapp-springboot/**', '.github/workflows/creditapp-springboot.yml']
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: TN2018/Apps/CreditAppService/creditapp-springboot/pom.xml
+      - run: mvn -B verify
+        working-directory: TN2018/Apps/CreditAppService/creditapp-springboot

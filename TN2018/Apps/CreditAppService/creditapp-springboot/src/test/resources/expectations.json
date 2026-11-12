@@ -1,0 +1,13 @@
+{
+  "notes": [
+    "Tests target stale creditapp.module.FICOScore, actual process EquifaxScore.",
+    "700-named .bwt asserts 800; not a 700 oracle.",
+    "Compiled .bwt rating tests compare quoted XPath literals and can never pass; use intended mapping, not broken assertions.",
+    "Experian .bwt uses stale creditscorePostParameters root/namespace."
+  ],
+  "cases": [
+    {"source":"CreditApp.module/Tests/TEST-FICOScore-800-1-Excellent.bwt:9 and Service Descriptors/getcreditstorebackend_0_1_mock_app.json: descriptor defaults / intended 800,1,Excellent", "equifax":{"FICOScore":800,"NoOfInquiries":1,"Rating":"Excellent"},"experian":{},"expected":{"EquifaxResponse":{"FICOScore":800,"NoOfInquiries":1,"Rating":"Excellent"},"ExperianResponse":{}}},
+    {"source":"CreditApp.module/Tests/TEST-Experian-Score-2-Good.bwt:9: intended fiCOScore=800, noOfInquiries=2, rating=Good", "equifax":{},"experian":{"fiCOScore":800,"noOfInquiries":2,"rating":"Good"},"expected":{"EquifaxResponse":{},"ExperianResponse":{"FICOScore":800,"NoOfInquiries":2,"Rating":"Good"}}},
+    {"source":"CreditApp.module/Processes/creditapp/module/MainProcess.bwp:780: wrappers unconditional, fields conditional", "equifax":{"Rating":""},"experian":{"fiCOScore":650},"expected":{"EquifaxResponse":{"Rating":""},"ExperianResponse":{"FICOScore":650}}}
+  ]
+}

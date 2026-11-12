@@ -1,0 +1,6 @@
+name,ssn,equifaxScore,equifaxRating,equifaxInquiries,experianScore,experianRating,experianInquiries
+Synthetic Aurora,900-11-0001,810,Excellent,1,785,Good,2
+Synthetic Beacon,900-11-0002,690,Good,3,650,Fair,4
+Synthetic Comet,900-11-0003,550,Poor,6,580,Fair,5
+Synthetic Delta (Equifax only),900-11-0004,730,Good,0,,,
+Synthetic Echo (Experian only),900-11-0005,,,,720,Good,1
