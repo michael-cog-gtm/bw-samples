@@ -147,6 +147,9 @@ test details. Important distinctions from verified source facts:
 - **Traces contain demo identity data.** `POST /creditdetails` keeps its original
   success JSON clean and adds an `X-Credit-Trace-Id` header. The page fetches exactly
   that request's trace; it does not race against the global last-request endpoint.
+  Each call includes the raw response body as a string (also for non-2xx or
+  malformed JSON), an empty string for an empty body, or null if no response was
+  received. The page displays it beside the sent payload, with its HTTP status.
   The newest 100 completed traces are held in memory, including failure traces;
   older/missing IDs return 404. Restart discards them. Reset reseeds the DB but
   does not clear the trace history. There is no durable audit log or auth.

@@ -30,6 +30,8 @@ test coverage, and explicit unverified behaviors.
   both outbound URL/payload/status/latency/error records (initially no body).
   POST `/creditdetails` also returns `X-Credit-Trace-Id`; GET `/api/traces/{id}`
   returns that request's trace, avoiding last-request races in the browser.
+  Each call retains the raw response body string, including errors/invalid JSON;
+  empty bodies are empty strings and absent responses are null.
   The last 100 completed traces are retained in memory (404 for missing/evicted
   IDs), not cleared by data reset. This intentionally includes demo identity data,
   is not a production audit store, and must not receive real PII.

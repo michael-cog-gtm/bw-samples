@@ -492,6 +492,16 @@ pre {
   margin-top:10px;
   padding:12px;
 }
+.call-exchange {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;
+}
+.exchange-label {
+  font-size:10px;
+  color:var(--muted);
+  margin:12px 0 0;
+}
 .call-error {
   color:var(--red);
   font-size:12px;
@@ -627,6 +637,9 @@ footer {
   }
 }
 @media(max-width:700px) {
+  .call-exchange {
+    grid-template-columns:1fr;
+  }
   .masthead {
     padding:16px;
   }

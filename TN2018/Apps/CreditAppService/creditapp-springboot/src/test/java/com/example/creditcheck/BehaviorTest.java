@@ -191,6 +191,21 @@ class BehaviorTest {
     }
 
     @Test
+    void traceDistinguishesEmptyJsonEmptyBodyAndNoResponse() throws Exception {
+        assertThat(post(app + "/creditdetails", "{\"SSN\":\"missing\"}").statusCode()).isEqualTo(502);
+        JsonNode missing = json(get(app + "/api/last-trace"));
+        assertThat(missing.at("/calls/0/status").asInt()).isEqualTo(404);
+        assertThat(missing.at("/calls/0/responseBody").asText()).isEmpty();
+        assertThat(missing.at("/calls/1/status").asInt()).isEqualTo(200);
+        assertThat(missing.at("/calls/1/responseBody").asText()).isEqualTo("{}");
+        mode("EQUIFAX", "DOWN", null);
+        assertThat(post(app + "/creditdetails", "{\"SSN\":\"123-45-6789\"}").statusCode()).isEqualTo(502);
+        JsonNode down = json(get(app + "/api/last-trace"));
+        assertThat(down.at("/calls/0/status").isNull()).isTrue();
+        assertThat(down.at("/calls/0/responseBody").isNull()).isTrue();
+    }
+
+    @Test
     void creditResponseAndTraceKeepContractsSeparate() throws Exception {
         ObjectNode input = Mappings.object().put("DOB", "01/01/2000").put("FirstName", "Aditya")
                 .put("LastName", "Wagle").put("SSN", "123-45-6789");
@@ -214,6 +229,7 @@ class BehaviorTest {
             assertThat(call.path("status").asInt()).isEqualTo(200);
             assertThat(call.path("latencyMs").asLong()).isGreaterThanOrEqualTo(0);
             assertThat(call.path("error").isNull()).isTrue();
+            assertThat(mapper.readTree(call.path("responseBody").asText()).isObject()).isTrue();
         }
     }
 

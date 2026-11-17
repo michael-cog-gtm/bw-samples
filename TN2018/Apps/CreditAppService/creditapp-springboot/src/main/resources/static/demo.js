@@ -111,7 +111,7 @@ function renderResult(result, name) {
     const card = element('div', 'score-card');
     card.append(element('h3', '', bureau), element('span', 'score', data.FICOScore ?? '—'),
       element('span', 'rating', data.Rating ?? 'Rating not supplied'),
-      element('span', 'inquiries', data.NoOfInquiries === undefined ? 'Inquiries not supplied' : `${data.NoOfInquiries} inquiries`));
+      element('span', 'inquiries', data.NoOfInquiries === undefined ? 'Inquiries not supplied' : `${data.NoOfInquiries} ${data.NoOfInquiries === 1 ? 'inquiry' : 'inquiries'}`));
     $('scores').append(card);
   }
 }
@@ -126,8 +126,21 @@ function renderTrace(trace) {
     status.append(element('span', `pill ${call.error ? 'error' : 'online'}`, call.status === null ? 'No HTTP response' : `HTTP ${call.status}`),
       element('span', 'quiet', `${call.latencyMs} ms`));
     heading.append(element('h3', '', call.bureau), status);
-    card.append(heading, element('code', 'call-url', `POST ${call.url}`),
-      element('pre', '', JSON.stringify(call.requestPayload, null, 2)));
+    const exchange = element('div', 'call-exchange');
+    const sent = element('div');
+    sent.append(element('p', 'exchange-label', 'Payload sent'), element('pre', '', JSON.stringify(call.requestPayload, null, 2)));
+    const received = element('div');
+    let responseBody = call.responseBody;
+    if (responseBody === null || responseBody === undefined) responseBody = 'No response received.';
+    else if (responseBody === '') responseBody = 'Empty response body.';
+    else {
+      try { responseBody = JSON.stringify(JSON.parse(responseBody), null, 2); }
+      catch { /* Non-JSON responses are displayed as received. */ }
+    }
+    received.append(element('p', 'exchange-label', call.status === null ? 'Response · not received' : `Response · HTTP ${call.status}`),
+      element('pre', '', responseBody));
+    exchange.append(sent, received);
+    card.append(heading, element('code', 'call-url', `POST ${call.url}`), exchange);
     if (call.error) card.append(element('p', 'call-error', friendly(call.error)));
     $('calls').append(card);
   }

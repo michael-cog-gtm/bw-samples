@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 @Profile("!standins")
 public class CreditService {
     public record CallTrace(String bureau, String url, JsonNode requestPayload, Integer status,
-                            long latencyMs, String error) { }
+                            long latencyMs, String error, String responseBody) { }
     public record RequestTrace(String id, Instant startedAt, List<CallTrace> calls) { }
     public record BureauError(String bureau, String reason) { }
     public record Result(int status, JsonNode body, RequestTrace trace) { }
@@ -127,18 +127,19 @@ public class CreditService {
                                 }
                             }
                         }
-                        return outcome(bureau, url, payload, status, started, error, body);
+                        return outcome(bureau, url, payload, status, started, error, body,
+                                response == null ? null : response.body());
                     });
         } catch (Exception failure) {
             return CompletableFuture.completedFuture(outcome(bureau, url, payload, null,
-                    started, reason(failure), Mappings.object()));
+                    started, reason(failure), Mappings.object(), null));
         }
     }
 
     private static Outcome outcome(String bureau, String url, JsonNode payload, Integer status,
-                                   long started, String error, JsonNode body) {
+                                   long started, String error, JsonNode body, String responseBody) {
         return new Outcome(body, new CallTrace(bureau, url, payload, status,
-                Duration.ofNanos(System.nanoTime() - started).toMillis(), error));
+                Duration.ofNanos(System.nanoTime() - started).toMillis(), error, responseBody));
     }
 
     private static String reason(Throwable error) {

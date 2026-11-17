@@ -34,6 +34,7 @@ class ClientFailureTest {
             assertThat(result.body().path("failures")).hasSize(2);
             assertThat(result.body().at("/failures/0/reason").asText()).isEqualTo(reason);
             assertThat(service.lastTrace().calls().getFirst().status()).isEqualTo(status);
+            assertThat(service.lastTrace().calls().getFirst().responseBody()).isEqualTo(body);
         } finally {
             server.stop(0);
         }
