@@ -14,7 +14,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,7 +31,7 @@ public class CreditService {
                             long latencyMs, String error) { }
     public record RequestTrace(String id, Instant startedAt, List<CallTrace> calls) { }
     public record BureauError(String bureau, String reason) { }
-    public record Result(int status, JsonNode body) { }
+    public record Result(int status, JsonNode body, RequestTrace trace) { }
     private record Outcome(JsonNode body, CallTrace trace) { }
 
     private final ObjectMapper mapper;
@@ -38,6 +40,7 @@ public class CreditService {
     private final String equifaxBase;
     private final String experianBase;
     private final AtomicReference<RequestTrace> lastTrace = new AtomicReference<>();
+    private final Map<String, RequestTrace> traces = new LinkedHashMap<>();
 
     public CreditService(ObjectMapper mapper,
                          @Value("${credit.equifax-base-url}") String equifaxBase,
@@ -55,6 +58,18 @@ public class CreditService {
         return lastTrace.get();
     }
 
+    public synchronized RequestTrace trace(String id) {
+        return traces.get(id);
+    }
+
+    private synchronized void remember(RequestTrace trace) {
+        traces.put(trace.id(), trace);
+        if (traces.size() > 100) {
+            traces.remove(traces.keySet().iterator().next());
+        }
+        lastTrace.set(trace);
+    }
+
     public Result check(JsonNode input) {
         Instant started = Instant.now();
         String id = UUID.randomUUID().toString();
@@ -67,7 +82,8 @@ public class CreditService {
         CompletableFuture.allOf(equifax, experian).join();
         Outcome eq = equifax.join();
         Outcome ex = experian.join();
-        lastTrace.set(new RequestTrace(id, started, List.of(eq.trace(), ex.trace())));
+        RequestTrace trace = new RequestTrace(id, started, List.of(eq.trace(), ex.trace()));
+        remember(trace);
         List<BureauError> errors = new ArrayList<>();
         for (Outcome outcome : List.of(eq, ex)) {
             if (outcome.trace().error() != null) {
@@ -78,10 +94,10 @@ public class CreditService {
             ObjectNode body = Mappings.object();
             body.put("error", "bureau request failed");
             body.set("failures", mapper.valueToTree(errors));
-            return new Result(502, body);
+            return new Result(502, body, trace);
         }
         return new Result(200, Mappings.mainReply(
-                Mappings.equifaxResponse(eq.body()), Mappings.experianResponse(ex.body())));
+                Mappings.equifaxResponse(eq.body()), Mappings.experianResponse(ex.body())), trace);
     }
 
     private CompletableFuture<Outcome> call(String bureau, String url, ObjectNode payload) {

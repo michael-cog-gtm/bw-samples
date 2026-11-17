@@ -1,5 +1,8 @@
 # Replacement decisions (not claims about the BW runtime)
 
+See [README.md](README.md) for the browser demo, run instructions, source citations,
+test coverage, and explicit unverified behaviors.
+
 - Java 21 / Spring Boot 3.5.7. Default JVM serves POST `/creditdetails` on 8080.
   A separate JVM using the same jar with `--spring.profiles.active=standins`
   serves admin on 13081 and two embedded Tomcat bureau connectors on 13080/7080.
@@ -25,8 +28,17 @@
   or identity validation beyond the original SSN LIKE lookup is introduced.
 - GET `/api/last-trace` returns the last *completed* request's ID, start time, and
   both outbound URL/payload/status/latency/error records (initially no body).
-  This intentionally includes demo identity data; it is in-memory, overwritten
-  on completion, not a production audit store, and must not receive real PII.
+  POST `/creditdetails` also returns `X-Credit-Trace-Id`; GET `/api/traces/{id}`
+  returns that request's trace, avoiding last-request races in the browser.
+  The last 100 completed traces are retained in memory (404 for missing/evicted
+  IDs), not cleared by data reset. This intentionally includes demo identity data,
+  is not a production audit store, and must not receive real PII.
+- The offline static page uses same-origin `/api/demo/rows`, `/api/demo/bureaus`,
+  `/api/demo/bureaus/{bureau}`, and `/api/demo/reset` proxies. The admin base URL is
+  `credit.standin-admin-base-url` / `STANDIN_ADMIN_BASE_URL` (localhost:13081).
+  A five-second admin deadline is independent of the one-second bureau deadline.
+  Database snapshots surround the request but are not atomic; a timed-out call
+  can finish/update later. Only the selected request's trace is correlated.
 - Admin endpoints (standins profile only): GET `/admin/bureaus`, GET `/admin/rows`,
   POST `/admin/reset`, POST `/admin/bureaus/EQUIFAX` or `/EXPERIAN` with
   `{"mode":"ONLINE|DOWN|SLOW"}`. SLOW defaults to 1600 ms, optional `delayMs`

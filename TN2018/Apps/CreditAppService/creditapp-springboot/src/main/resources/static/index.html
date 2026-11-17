@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#162f36">
+  <title>Credit check | Local demonstration</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/demo.css">
+  <script src="/demo.js" defer></script>
+</head>
+<body>
+  <header class="masthead"><a href="/" class="brand"><span class="brand-mark">C<span>✓</span></span><span>Credit check<small>INTEGRATION DEMO</small></span></a><span class="demo-label"><span class="dot"></span> Local demo · no live bureau connections</span></header>
+  <main>
+    <section class="intro"><div><p class="eyebrow">THE COMPLETE PICTURE</p><h1>Two credit checks.<br>One clear picture.</h1><p class="lede">Choose a sample customer. See both bureau results, follow each call,<br class="wide-only"> and discover what happens when a connection fails.</p></div><div class="flow"><span>Customer</span><b>→</b><span>Credit app</span><b>→</b><div><span>Equifax</span><span>Experian</span></div></div></section>
+    <div id="notice" class="notice" role="alert" hidden></div>
+    <div class="workspace">
+      <section class="panel customers"><div class="section-heading"><div><p class="eyebrow">01 / START A CHECK</p><h2>Sample customers</h2></div><span class="quiet">Click a card to run</span></div><div id="customers" class="customer-grid"><p class="quiet">Loading sample customers…</p></div>
+        <details class="manual"><summary>Or enter customer details <span>All fields optional</span></summary><form id="manual-form"><div class="form-grid"><label>First name<input name="FirstName" autocomplete="off" placeholder="First name"></label><label>Last name<input name="LastName" autocomplete="off" placeholder="Last name"></label><label>Date of birth<input name="DOB" autocomplete="off" placeholder="MM/DD/YYYY"></label><label>Social Security number<input name="SSN" autocomplete="off" placeholder="123-45-6789"></label></div><button class="primary action" type="submit">Check these details <span aria-hidden="true">→</span></button><p class="quiet">Demo data only. Please do not enter real personal information.</p></form></details>
+      </section>
+      <aside class="panel connections"><div class="section-heading"><div><p class="eyebrow">TRY A DIFFERENT SCENARIO</p><h2>Bureau connections</h2></div></div><p class="helper">Change a connection, then run a customer check.</p><div id="connections"><p class="quiet">Checking connections…</p></div><div class="connection-actions"><button id="reset" class="secondary action">↻ Reset demo data</button><button id="refresh" class="text-button action">Refresh</button></div><p class="quiet">Reset restores all five records and brings both bureaus online.</p></aside>
+    </div>
+    <section class="panel result-panel" aria-labelledby="result-title"><div class="section-heading"><div><p class="eyebrow">02 / THE OUTCOME</p><h2 id="result-title">Your credit check result</h2></div><span id="http-status" class="pill neutral">Ready when you are</span></div><div id="result-message" role="status" aria-live="polite" class="result-message">Choose a customer above to see their credit scores side by side.</div><div id="scores" class="score-grid" hidden></div><details id="raw-detail" hidden><summary>View the raw JSON response</summary><pre id="raw-response"></pre></details></section>
+    <section class="panel backstage" aria-labelledby="behind-title"><div class="section-heading"><div><p class="eyebrow">03 / FOLLOW THE JOURNEY</p><h2 id="behind-title">Behind the scenes</h2></div><span class="quiet">Two calls, sent in parallel</span></div><p id="trace-caption" class="helper">The actual outbound requests will appear here after a check.</p><div id="calls" class="call-grid"></div><div class="records-heading"><h3>Bureau records · before &amp; after</h3><span class="change-key"><i></i> Changed value</span></div><p class="helper">Both local bureaus share this table. Equifax increases inquiries; Experian only reads. Scores show the count read before any update, so the two results may differ.</p><div id="record-comparison" class="table-wrap"><p class="quiet empty-records">Run a check to compare the records.</p></div><p id="snapshot-note" class="quiet">Snapshots surround the request, not a database transaction. A timed-out call may still finish later.</p></section>
+    <footer><span>Built from the original TIBCO BusinessWorks credit-check flow.</span><span>Local stand-ins · Sample data · No credit decision is made</span></footer>
+  </main>
+</body>
+</html>

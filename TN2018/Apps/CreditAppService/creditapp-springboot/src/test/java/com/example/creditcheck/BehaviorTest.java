@@ -64,7 +64,7 @@ class BehaviorTest {
         experian = "http://localhost:" + experianPort;
         credit = (ServletWebServerApplicationContext) new SpringApplicationBuilder(CreditApplication.class)
                 .profiles("credit-test").run("--server.port=0", "--credit.equifax-base-url=" + equifax,
-                        "--credit.experian-base-url=" + experian);
+                        "--credit.experian-base-url=" + experian, "--credit.standin-admin-base-url=" + admin);
         app = "http://localhost:" + credit.getWebServer().getPort();
         assertThat(post(app + "/creditdetails", "{\"SSN\":\"123-45-6789\"}").statusCode()).isEqualTo(200);
     }
@@ -82,6 +82,53 @@ class BehaviorTest {
         if (standins != null) {
             standins.close();
         }
+    }
+
+    @Test
+    void demoPageAndAssetsAreServedLocally() throws Exception {
+        var page = get(app + "/");
+        assertThat(page.statusCode()).isEqualTo(200);
+        assertThat(page.body()).contains("Credit check", "/demo.js", "/demo.css").doesNotContain("https://");
+        assertThat(get(app + "/demo.js").statusCode()).isEqualTo(200);
+        assertThat(get(app + "/demo.css").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void demoProxySupportsRowsModesFailuresAndReset() throws Exception {
+        JsonNode before = json(get(app + "/api/demo/rows"));
+        assertThat(before).hasSize(5);
+        assertThat(json(get(app + "/api/demo/bureaus")).at("/EQUIFAX/mode").asText()).isEqualTo("ONLINE");
+        assertThat(json(post(app + "/api/demo/bureaus/EQUIFAX", "{\"mode\":\"DOWN\"}"))
+                .path("mode").asText()).isEqualTo("DOWN");
+        var failed = post(app + "/creditdetails", "{\"SSN\":\"123-45-6789\"}");
+        assertThat(failed.statusCode()).isEqualTo(502);
+        assertThat(json(failed).at("/failures/0/reason").asText()).isEqualTo("connection refused");
+        String id = failed.headers().firstValue("X-Credit-Trace-Id").orElseThrow();
+        assertThat(json(get(app + "/api/traces/" + id)).at("/calls/0/error").asText()).isEqualTo("connection refused");
+        assertThat(post(app + "/api/demo/bureaus/EQUIFAX", "{\"mode\":\"SLOW\"}").statusCode()).isEqualTo(200);
+        var slow = post(app + "/creditdetails", "{\"SSN\":\"123-45-6789\"}");
+        assertThat(json(slow).at("/failures/0/reason").asText()).isEqualTo("timeout");
+        assertThat(post(app + "/api/demo/reset", "{}").statusCode()).isEqualTo(200);
+        assertThat(json(get(app + "/api/demo/rows"))).isEqualTo(before);
+        var success = post(app + "/creditdetails", "{\"SSN\":\"123-45-6789\"}");
+        assertThat(success.statusCode()).isEqualTo(200);
+        String successId = success.headers().firstValue("X-Credit-Trace-Id").orElseThrow();
+        assertThat(successId).isNotEqualTo(id);
+        JsonNode trace = json(get(app + "/api/traces/" + successId));
+        assertThat(trace.path("id").asText()).isEqualTo(successId);
+        assertThat(trace.at("/calls/0/status").asInt()).isEqualTo(200);
+        assertThat(trace.at("/calls/0/requestPayload/SSN").asText()).isEqualTo("123-45-6789");
+        assertThat(row(json(get(app + "/api/demo/rows")), "123-45-6789").path("numofpulls").asInt())
+                .isEqualTo(row(before, "123-45-6789").path("numofpulls").asInt() + 1);
+        assertThat(json(get(app + "/api/traces/" + id)).at("/calls/0/error").asText()).isEqualTo("connection refused");
+        assertThat(get(app + "/api/traces/not-a-request").statusCode()).isEqualTo(404);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"mode\":\"UNKNOWN\"}", "{\"mode\":\"SLOW\",\"delayMs\":-1}"})
+    void demoProxyRejectsInvalidControls(String body) throws Exception {
+        assertThat(post(app + "/api/demo/bureaus/EQUIFAX", body).statusCode()).isEqualTo(400);
+        assertThat(post(app + "/api/demo/bureaus/UNKNOWN", "{\"mode\":\"DOWN\"}").statusCode()).isEqualTo(400);
     }
 
     @Test
